@@ -358,7 +358,7 @@
             </div>
         </section>
 
-        <!-- ================= TAB 4: RESERVATION SYSTEM (IMPROVED) ================= -->
+        <!-- ================= TAB 4: RESERVATION SYSTEM ================= -->
         <section id="view-reservations" class="tab-view hidden space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
@@ -734,7 +734,6 @@
             ],
             nextQueueNumber: 4,
             nowServing: 1,
-            // TABLE & RESERVATIONS DATA
             tables: [
                 { id: 1, name: "Table 1", capacity: "2 Seats", isReserved: false },
                 { id: 2, name: "Table 2", capacity: "4 Seats", isReserved: true, reservedBy: "Jose Rizal" },
@@ -802,107 +801,96 @@
             }, 3000);
         }
 
-        /* ================= UPDATED AUTHENTICATION LOGIC ================= */
-async function handleAuthSubmit(e) {
-    e.preventDefault();
-    const pin = document.getElementById('auth-pin-input').value.trim();
-
-    let role = null;
-    let userName = "";
-
-    if (pin === "1234") {
-        role = "staff";
-        userName = "Staff User";
-    } else if (pin === "8888" || pin.toLowerCase() === "admin") {
-        role = "admin";
-        userName = "Admin User";
-    }
-
-    if (role) {
-        state.auth.isAuthenticated = true;
-        state.auth.role = role;
-        state.auth.userName = userName;
-
-        // Record Login Entry to Database
-        try {
-            await fetch('http://localhost:3000/api/logs/auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role, userName })
-            });
-        } catch (err) {
-            console.error('Failed to log login event to database:', err);
+        /* ================= AUTHENTICATION MODAL & LOGIC ================= */
+        function openAuthModal() {
+            document.getElementById('auth-pin-input').value = '';
+            document.getElementById('auth-error-msg').classList.add('hidden');
+            document.getElementById('auth-modal').classList.remove('hidden');
         }
 
-        closeAuthModal();
-        updateAuthUI();
-        switchTab('admin');
-        showToast(`Logged in successfully as ${role.toUpperCase()}`, "success");
-    } else {
-        document.getElementById('auth-error-msg').classList.remove('hidden');
-    }
-}
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+        }
 
-/* ================= UPDATED CHECKOUT LOGIC ================= */
-async function processCheckout() {
-    if (state.currentOrder.length === 0) return;
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const pin = document.getElementById('auth-pin-input').value.trim();
 
-    const customerName = document.getElementById('order-customer-name').value.trim() || "Walk-in Guest";
-    const subtotal = state.currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+            let role = null;
+            let userName = "";
 
-    const orderPayload = {
-        customerName: customerName,
-        orderType: state.orderType,
-        subtotal: subtotal,
-        items: state.currentOrder.map(item => ({
-            name: item.name,
-            price: item.price,
-            qty: item.qty
-        }))
-    };
+            if (pin === "1234") {
+                role = "staff";
+                userName = "Staff User";
+            } else if (pin === "8888" || pin.toLowerCase() === "admin") {
+                role = "admin";
+                userName = "Admin User";
+            }
 
-    // Save Order to Database
-    try {
-        const response = await fetch('http://localhost:3000/api/orders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderPayload)
-        });
+            if (role) {
+                state.auth.isAuthenticated = true;
+                state.auth.role = role;
+                state.auth.userName = userName;
 
-        if (!response.ok) throw new Error('Failed to record order.');
-        showToast("Order successfully saved to database!", "success");
-    } catch (err) {
-        console.error('Database insertion error:', err);
-        showToast("Order completed locally (Server Unreachable)", "error");
-    }
+                try {
+                    await fetch('http://localhost:3000/api/logs/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ role, userName })
+                    });
+                } catch (err) {
+                    console.error('Failed to log login event to database:', err);
+                }
 
-    // Render Receipt Modal UI
-    document.getElementById('receipt-date').textContent = new Date().toLocaleString();
-    document.getElementById('receipt-type').textContent = state.orderType;
-    document.getElementById('receipt-customer').textContent = customerName;
-    document.getElementById('receipt-total').textContent = `₱${subtotal.toFixed(2)}`;
+                closeAuthModal();
+                updateAuthUI();
+                switchTab('admin');
+                showToast(`Logged in successfully as ${role.toUpperCase()}`, "success");
+            } else {
+                document.getElementById('auth-error-msg').classList.remove('hidden');
+            }
+        }
 
-    const receiptList = document.getElementById('receipt-items-list');
-    receiptList.innerHTML = '';
-    state.currentOrder.forEach(i => {
-        receiptList.innerHTML += `
-            <div class="flex justify-between">
-                <span>${i.qty}x ${i.name}</span>
-                <span class="font-bold">₱${(i.price * i.qty).toFixed(2)}</span>
-            </div>
-        `;
-    });
+        function handleLogout() {
+            state.auth.isAuthenticated = false;
+            state.auth.role = null;
+            state.auth.userName = "";
+            updateAuthUI();
+            switchTab('pos');
+            showToast("Logged out successfully.", "info");
+        }
 
-    state.totalSales += subtotal;
-    state.completedOrdersCount += 1;
-    updateAdminStats();
+        function updateAuthUI() {
+            const badge = document.getElementById('auth-status-badge');
+            const mBadge = document.getElementById('mauth-status-badge');
+            const roleTag = document.getElementById('auth-role-tag');
+            const userNameTag = document.getElementById('auth-user-name');
+            const adminIcon = document.getElementById('admin-tab-icon');
+            const mAdminIcon = document.getElementById('madmin-tab-icon');
 
-    state.currentOrder = [];
-    document.getElementById('order-customer-name').value = '';
-    renderOrderSummary();
+            if (state.auth.isAuthenticated) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+                mBadge.classList.remove('hidden');
 
-    document.getElementById('receipt-modal').classList.remove('hidden');
-}
+                roleTag.textContent = state.auth.role.toUpperCase();
+                roleTag.className = state.auth.role === 'admin' 
+                    ? "text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-stone-950"
+                    : "text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-600 text-white";
+                userNameTag.textContent = state.auth.userName;
+
+                adminIcon.className = "fa-solid fa-user-gear";
+                mAdminIcon.className = "fa-solid fa-user-gear";
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('flex');
+                mBadge.classList.add('hidden');
+
+                adminIcon.className = "fa-solid fa-lock";
+                mAdminIcon.className = "fa-solid fa-lock";
+            }
+        }
+
         /* ================= TAB NAVIGATION ================= */
         function switchTab(tabId) {
             if (tabId === 'admin' && !state.auth.isAuthenticated) {
@@ -1086,11 +1074,36 @@ async function processCheckout() {
             btn.className = "w-full py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-sm shadow-md shadow-orange-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer";
         }
 
-        function processCheckout() {
+        async function processCheckout() {
             if (state.currentOrder.length === 0) return;
 
             const customerName = document.getElementById('order-customer-name').value.trim() || "Walk-in Guest";
             const subtotal = state.currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+
+            const orderPayload = {
+                customerName: customerName,
+                orderType: state.orderType,
+                subtotal: subtotal,
+                items: state.currentOrder.map(item => ({
+                    name: item.name,
+                    price: item.price,
+                    qty: item.qty
+                }))
+            };
+
+            try {
+                const response = await fetch('http://localhost:3000/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderPayload)
+                });
+
+                if (!response.ok) throw new Error('Failed to record order.');
+                showToast("Order successfully saved to database!", "success");
+            } catch (err) {
+                console.error('Database insertion error:', err);
+                showToast("Order completed locally (Server Unreachable)", "error");
+            }
 
             document.getElementById('receipt-date').textContent = new Date().toLocaleString();
             document.getElementById('receipt-type').textContent = state.orderType;
@@ -1261,7 +1274,7 @@ async function processCheckout() {
             document.getElementById('announcement-banner').classList.add('hidden');
         }
 
-        /* ================= ENHANCED RESERVATION & TABLE MAP LOGIC ================= */
+        /* ================= RESERVATION & TABLE MAP LOGIC ================= */
         function renderTableMap() {
             const grid = document.getElementById('table-grid');
             grid.innerHTML = '';
@@ -1333,7 +1346,6 @@ async function processCheckout() {
             const date = document.getElementById('res-date').value;
             const time = document.getElementById('res-time').value;
 
-            // Update table state
             table.isReserved = true;
             table.reservedBy = name;
 
@@ -1351,7 +1363,6 @@ async function processCheckout() {
 
             state.reservations.unshift(res);
 
-            // Reset selection and inputs
             state.selectedTableId = null;
             document.getElementById('res-table-id').value = '';
             document.getElementById('res-name').value = '';
