@@ -802,93 +802,107 @@
             }, 3000);
         }
 
-        /* ================= AUTHENTICATION LOGIC ================= */
-        function openAuthModal() {
-            document.getElementById('auth-pin-input').value = '';
-            document.getElementById('auth-error-msg').classList.add('hidden');
-            document.getElementById('auth-modal').classList.remove('hidden');
-            setTimeout(() => document.getElementById('auth-pin-input').focus(), 100);
+        /* ================= UPDATED AUTHENTICATION LOGIC ================= */
+async function handleAuthSubmit(e) {
+    e.preventDefault();
+    const pin = document.getElementById('auth-pin-input').value.trim();
+
+    let role = null;
+    let userName = "";
+
+    if (pin === "1234") {
+        role = "staff";
+        userName = "Staff User";
+    } else if (pin === "8888" || pin.toLowerCase() === "admin") {
+        role = "admin";
+        userName = "Admin User";
+    }
+
+    if (role) {
+        state.auth.isAuthenticated = true;
+        state.auth.role = role;
+        state.auth.userName = userName;
+
+        // Record Login Entry to Database
+        try {
+            await fetch('http://localhost:3000/api/logs/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, userName })
+            });
+        } catch (err) {
+            console.error('Failed to log login event to database:', err);
         }
 
-        function closeAuthModal() {
-            document.getElementById('auth-modal').classList.add('hidden');
-        }
+        closeAuthModal();
+        updateAuthUI();
+        switchTab('admin');
+        showToast(`Logged in successfully as ${role.toUpperCase()}`, "success");
+    } else {
+        document.getElementById('auth-error-msg').classList.remove('hidden');
+    }
+}
 
-        function handleAuthSubmit(e) {
-            e.preventDefault();
-            const pin = document.getElementById('auth-pin-input').value.trim();
+/* ================= UPDATED CHECKOUT LOGIC ================= */
+async function processCheckout() {
+    if (state.currentOrder.length === 0) return;
 
-            if (pin === "1234") {
-                state.auth.isAuthenticated = true;
-                state.auth.role = "staff";
-                state.auth.userName = "Staff User";
-                closeAuthModal();
-                updateAuthUI();
-                switchTab('admin');
-                showToast("Logged in successfully as Staff", "success");
-            } else if (pin === "8888" || pin.toLowerCase() === "admin") {
-                state.auth.isAuthenticated = true;
-                state.auth.role = "admin";
-                state.auth.userName = "Admin User";
-                closeAuthModal();
-                updateAuthUI();
-                switchTab('admin');
-                showToast("Logged in successfully as Administrator", "success");
-            } else {
-                document.getElementById('auth-error-msg').classList.remove('hidden');
-            }
-        }
+    const customerName = document.getElementById('order-customer-name').value.trim() || "Walk-in Guest";
+    const subtotal = state.currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
 
-        function handleLogout() {
-            state.auth.isAuthenticated = false;
-            state.auth.role = null;
-            state.auth.userName = "";
-            updateAuthUI();
-            switchTab('pos');
-            showToast("Logged out of Staff/Admin portal", "info");
-        }
+    const orderPayload = {
+        customerName: customerName,
+        orderType: state.orderType,
+        subtotal: subtotal,
+        items: state.currentOrder.map(item => ({
+            name: item.name,
+            price: item.price,
+            qty: item.qty
+        }))
+    };
 
-        function updateAuthUI() {
-            const badge = document.getElementById('auth-status-badge');
-            const mbadge = document.getElementById('mauth-status-badge');
-            const roleTag = document.getElementById('auth-role-tag');
-            const userName = document.getElementById('auth-user-name');
-            const adminTabIcon = document.getElementById('admin-tab-icon');
-            const madminTabIcon = document.getElementById('madmin-tab-icon');
+    // Save Order to Database
+    try {
+        const response = await fetch('http://localhost:3000/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+        });
 
-            if (state.auth.isAuthenticated) {
-                badge.classList.remove('hidden');
-                badge.classList.add('flex');
-                mbadge.classList.remove('hidden');
+        if (!response.ok) throw new Error('Failed to record order.');
+        showToast("Order successfully saved to database!", "success");
+    } catch (err) {
+        console.error('Database insertion error:', err);
+        showToast("Order completed locally (Server Unreachable)", "error");
+    }
 
-                roleTag.textContent = state.auth.role.toUpperCase();
-                roleTag.className = state.auth.role === 'admin' 
-                    ? 'text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-stone-950'
-                    : 'text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-600 text-white';
-                
-                userName.textContent = state.auth.userName;
+    // Render Receipt Modal UI
+    document.getElementById('receipt-date').textContent = new Date().toLocaleString();
+    document.getElementById('receipt-type').textContent = state.orderType;
+    document.getElementById('receipt-customer').textContent = customerName;
+    document.getElementById('receipt-total').textContent = `₱${subtotal.toFixed(2)}`;
 
-                adminTabIcon.className = "fa-solid fa-sliders";
-                madminTabIcon.className = "fa-solid fa-sliders";
-            } else {
-                badge.classList.add('hidden');
-                badge.classList.remove('flex');
-                mbadge.classList.add('hidden');
+    const receiptList = document.getElementById('receipt-items-list');
+    receiptList.innerHTML = '';
+    state.currentOrder.forEach(i => {
+        receiptList.innerHTML += `
+            <div class="flex justify-between">
+                <span>${i.qty}x ${i.name}</span>
+                <span class="font-bold">₱${(i.price * i.qty).toFixed(2)}</span>
+            </div>
+        `;
+    });
 
-                adminTabIcon.className = "fa-solid fa-lock";
-                madminTabIcon.className = "fa-solid fa-lock";
-            }
+    state.totalSales += subtotal;
+    state.completedOrdersCount += 1;
+    updateAdminStats();
 
-            const advanceBtn = document.getElementById('advance-day-btn');
-            if (state.auth.role === 'staff') {
-                advanceBtn.disabled = true;
-                advanceBtn.className = "w-full py-3 bg-stone-700 text-stone-400 font-bold text-xs rounded-xl cursor-not-allowed opacity-60";
-            } else {
-                advanceBtn.disabled = false;
-                advanceBtn.className = "w-full py-3 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer";
-            }
-        }
+    state.currentOrder = [];
+    document.getElementById('order-customer-name').value = '';
+    renderOrderSummary();
 
+    document.getElementById('receipt-modal').classList.remove('hidden');
+}
         /* ================= TAB NAVIGATION ================= */
         function switchTab(tabId) {
             if (tabId === 'admin' && !state.auth.isAuthenticated) {
