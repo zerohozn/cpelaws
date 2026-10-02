@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boss SanAgus's Karinderia - Management & POS System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                            800: '#9a3412',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .animate-pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printable-receipt, #printable-receipt * {
+                visibility: visible;
+            }
+            #printable-receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800 font-sans antialiased min-h-screen flex flex-col selection:bg-orange-500 selection:text-white">
+
+    <!-- HEADER / NAVIGATION -->
+    <header class="bg-stone-900 text-white sticky top-0 z-30 shadow-md border-b border-stone-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <!-- Logo & Brand -->
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-orange-600/30">
+                        <i class="fa-solid fa-utensils"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                            Boss SanAgus's <span class="text-orange-500 text-xs px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-full uppercase tracking-wider font-semibold">Karinderia</span>
+                        </h1>
+                        <p class="text-xs text-stone-400">Masarap na Mapapamura ka pa</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs (Desktop) -->
+                <nav class="hidden md:flex space-x-1 lg:space-x-2">
+                    <button onclick="switchTab('pos')" id="tab-pos" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 bg-orange-600 text-white shadow-md shadow-orange-600/20">
+                        <i class="fa-solid fa-cash-register"></i> Today's Menu / POS
+                    </button>
+                    <button onclick="switchTab('tomorrow')" id="tab-tomorrow" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-medium text-stone-300 hover:text-white hover:bg-stone-800 transition-all duration-200 flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-day"></i> Tomorrow's Menu
+                    </button>
+                    <button onclick="switchTab('queue')" id="tab-queue" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-medium text-stone-300 hover:text-white hover:bg-stone-800 transition-all duration-200 flex items-center gap-2">
+                        <i class="fa-solid fa-users-between-lines"></i> Queueing
+                        <span id="nav-queue-count" class="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                    </button>
+                    <button onclick="switchTab('reservations')" id="tab-reservations" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-medium text-stone-300 hover:text-white hover:bg-stone-800 transition-all duration-200 flex items-center gap-2">
+                        <i class="fa-solid fa-utensils"></i> Table Reservations
+                    </button>
+                    <button onclick="switchTab('admin')" id="tab-admin" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-medium text-stone-300 hover:text-white hover:bg-stone-800 transition-all duration-200 flex items-center gap-2">
+                        <i class="fa-solid fa-lock" id="admin-tab-icon"></i> Staff / Admin
+                    </button>
+                </nav>
+
+                <!-- Status & Auth indicator -->
+                <div class="hidden lg:flex items-center gap-4 border-l border-stone-800 pl-4">
+                    <!-- Auth Session Status Badge -->
+                    <div id="auth-status-badge" class="hidden items-center gap-2 bg-stone-800 border border-stone-700 px-3 py-1.5 rounded-xl">
+                        <span id="auth-role-tag" class="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-600 text-white">STAFF</span>
+                        <span id="auth-user-name" class="text-xs font-semibold text-stone-200">Logged In</span>
+                        <button onclick="handleLogout()" title="Logout Staff/Admin" class="text-stone-400 hover:text-red-400 text-xs ml-1 transition-colors">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </div>
+
+                    <div class="text-right">
+                        <div id="live-time" class="text-sm font-semibold text-stone-200">--:--:-- PM</div>
+                        <div id="live-date" class="text-xs text-stone-400">Loading date...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation bar -->
+        <div class="md:hidden flex overflow-x-auto hide-scrollbar bg-stone-950 border-t border-stone-800 p-2 gap-1 text-xs items-center justify-between">
+            <div class="flex gap-1 overflow-x-auto">
+                <button onclick="switchTab('pos')" id="mtab-pos" class="tab-btn-m whitespace-nowrap px-3 py-2 rounded-lg font-medium bg-orange-600 text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-cash-register"></i> POS
+                </button>
+                <button onclick="switchTab('tomorrow')" id="mtab-tomorrow" class="tab-btn-m whitespace-nowrap px-3 py-2 rounded-lg font-medium text-stone-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-calendar-day"></i> Tomorrow
+                </button>
+                <button onclick="switchTab('queue')" id="mtab-queue" class="tab-btn-m whitespace-nowrap px-3 py-2 rounded-lg font-medium text-stone-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-users-between-lines"></i> Queue
+                </button>
+                <button onclick="switchTab('reservations')" id="mtab-reservations" class="tab-btn-m whitespace-nowrap px-3 py-2 rounded-lg font-medium text-stone-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-utensils"></i> Reserve
+                </button>
+                <button onclick="switchTab('admin')" id="mtab-admin" class="tab-btn-m whitespace-nowrap px-3 py-2 rounded-lg font-medium text-stone-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-lock" id="madmin-tab-icon"></i> Admin
+                </button>
+            </div>
+            <!-- Mobile Logout Button -->
+            <div id="mauth-status-badge" class="hidden">
+                <button onclick="handleLogout()" class="px-2.5 py-1.5 bg-red-600/20 text-red-400 rounded-lg text-xs font-bold border border-red-500/30">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ANNOUNCEMENT BANNER -->
+    <div id="announcement-banner" class="hidden bg-gradient-to-r from-amber-500 via-orange-600 to-amber-600 text-white py-3 px-4 shadow-inner relative overflow-hidden">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="flex h-3 w-3 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                </span>
+                <span id="announcement-text" class="font-bold tracking-wide text-sm md:text-base">
+                    Now Serving Ticket #01 at Counter!
+                </span>
+            </div>
+            <button onclick="closeAnnouncement()" class="text-white/80 hover:text-white text-sm bg-black/20 hover:bg-black/40 rounded-lg px-2 py-1">
+                <i class="fa-solid fa-xmark"></i> Close
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- ================= TAB 1: POS / TODAY'S MENU ================= -->
+        <section id="view-pos" class="tab-view space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- Menu Catalog Column (8 cols) -->
+                <div class="lg:col-span-7 xl:col-span-8 space-y-5">
+                    <!-- Search & Filter Controls -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-stone-200 flex flex-col sm:flex-row gap-3 items-center justify-between">
+                        <!-- Categories -->
+                        <div class="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto hide-scrollbar pb-1 sm:pb-0">
+                            <button onclick="filterCategory('All')" class="cat-btn active-cat bg-stone-900 text-white text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap transition-all">All Items</button>
+                            <button onclick="filterCategory('Ulam')" class="cat-btn bg-stone-100 text-stone-600 hover:bg-stone-200 text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap transition-all">🍲 Ulam</button>
+                            <button onclick="filterCategory('Kanin')" class="cat-btn bg-stone-100 text-stone-600 hover:bg-stone-200 text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap transition-all">🍚 Kanin</button>
+                            <button onclick="filterCategory('Meryenda')" class="cat-btn bg-stone-100 text-stone-600 hover:bg-stone-200 text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap transition-all">🍌 Meryenda</button>
+                            <button onclick="filterCategory('Inumin')" class="cat-btn bg-stone-100 text-stone-600 hover:bg-stone-200 text-xs font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap transition-all">🥤 Inumin</button>
+                        </div>
+                        <!-- Search Box -->
+                        <div class="relative w-full sm:w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs"></i>
+                            <input type="text" id="menu-search" oninput="renderTodayMenu()" placeholder="Search menu items..." class="w-full pl-8 pr-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all">
+                        </div>
+                    </div>
+
+                    <!-- Cards Grid -->
+                    <div id="today-menu-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <!-- Menu Cards Injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Order Summary / Billing Sidebar (4 cols) -->
+                <div class="lg:col-span-5 xl:col-span-4 bg-white rounded-2xl shadow-md border border-stone-200 flex flex-col h-[calc(100vh-12rem)] sticky top-28">
+                    <!-- Header -->
+                    <div class="p-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50 rounded-t-2xl">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-receipt text-orange-600"></i>
+                            <h2 class="font-bold text-stone-800">Current Order</h2>
+                        </div>
+                        <button onclick="clearOrder()" class="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i> Clear
+                        </button>
+                    </div>
+
+                    <!-- Customer Info & Service Type -->
+                    <div class="p-4 border-b border-stone-100 bg-stone-50/30 space-y-3">
+                        <div class="flex gap-2">
+                            <button onclick="setOrderType('Dine-in')" id="type-dinein" class="order-type-btn flex-1 py-2 rounded-xl border-2 border-orange-600 bg-orange-50 text-orange-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-utensils"></i> Dine-in
+                            </button>
+                            <button onclick="setOrderType('Take-out')" id="type-takeout" class="order-type-btn flex-1 py-2 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-semibold hover:border-stone-300 transition-all flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-bag-shopping"></i> Take-out
+                            </button>
+                        </div>
+                        <div>
+                            <input type="text" id="order-customer-name" placeholder="Customer Name / Table # (Optional)" class="w-full text-xs px-3 py-2 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+                    </div>
+
+                    <!-- Order Items List -->
+                    <div id="order-items-list" class="flex-1 overflow-y-auto p-4 space-y-3 divide-y divide-stone-100">
+                        <div class="text-center py-12 text-stone-400">
+                            <i class="fa-solid fa-basket-shopping text-4xl mb-2 text-stone-300"></i>
+                            <p class="text-xs font-medium">No items selected yet</p>
+                            <p class="text-[10px] text-stone-400 mt-0.5">Click on menu items to add to order</p>
+                        </div>
+                    </div>
+
+                    <!-- Billing Details Footer -->
+                    <div class="p-4 border-t border-stone-200 bg-stone-50 rounded-b-2xl space-y-3">
+                        <div class="space-y-1.5 text-xs">
+                            <div class="flex justify-between text-stone-500">
+                                <span>Subtotal</span>
+                                <span id="summary-subtotal" class="font-medium text-stone-800">₱0.00</span>
+                            </div>
+                            <div class="flex justify-between text-stone-500">
+                                <span>Service Fee / Packaging</span>
+                                <span id="summary-fee" class="font-medium text-stone-800">₱0.00</span>
+                            </div>
+                            <div class="flex justify-between text-base font-extrabold text-stone-900 pt-2 border-t border-stone-200">
+                                <span>Total Payable</span>
+                                <span id="summary-total" class="text-orange-600">₱0.00</span>
+                            </div>
+                        </div>
+
+                        <button onclick="processCheckout()" id="checkout-btn" disabled class="w-full py-3 bg-stone-300 text-stone-500 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-not-allowed">
+                            <i class="fa-solid fa-check-circle"></i> Checkout & Print Receipt
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 2: TOMORROW'S MENU PREVIEW ================= -->
+        <section id="view-tomorrow" class="tab-view hidden space-y-6">
+            <!-- Header Banner -->
+            <div class="bg-gradient-to-r from-stone-900 via-stone-800 to-amber-950 text-white rounded-2xl p-6 sm:p-8 shadow-md relative overflow-hidden">
+                <div class="relative z-10 max-w-2xl space-y-2">
+                    <span class="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20">Preview Mode</span>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-white">Tomorrow's Special Menu</h2>
+                    <p class="text-stone-300 text-xs sm:text-sm">Plan your meals ahead! Here are the fresh home-cooked dishes Boss SanAg is preparing for tomorrow.</p>
+                </div>
+                <i class="fa-solid fa-sun absolute -right-6 -bottom-6 text-9xl text-white/5 pointer-events-none"></i>
+            </div>
+
+            <!-- Status Notice -->
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between text-amber-900">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-circle-info text-amber-600 text-xl"></i>
+                    <div>
+                        <p class="text-xs font-bold">Updated Daily by 5:00 PM</p>
+                        <p class="text-xs text-amber-700">Pre-orders for tomorrow are available through queue reservation.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tomorrow's Menu Grid -->
+            <div id="tomorrow-menu-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Tomorrow's cards injected via JS -->
+            </div>
+        </section>
+
+        <!-- ================= TAB 3: QUEUEING SYSTEM ================= -->
+        <section id="view-queue" class="tab-view hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Ticket Generation Form (5 cols) -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-6">
+                    <div>
+                        <span class="text-xs font-bold text-orange-600 uppercase tracking-wider">Join The Line</span>
+                        <h2 class="text-xl font-bold text-stone-900">Get a Queue Number</h2>
+                        <p class="text-xs text-stone-500 mt-1">Get your digital ticket and monitor your status live.</p>
+                    </div>
+
+                    <form onsubmit="handleGetTicket(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-stone-700 mb-1">Your Full Name</label>
+                            <input type="text" id="queue-name" required placeholder="e.g. Juan Cruz" class="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-stone-700 mb-1">Service Type</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="flex items-center justify-center gap-2 p-3 border-2 border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-all text-xs font-bold text-stone-700 has-[:checked]:border-orange-600 has-[:checked]:bg-orange-50 has-[:checked]:text-orange-700">
+                                    <input type="radio" name="queue-service" value="Dine-in" checked class="hidden">
+                                    <i class="fa-solid fa-utensils"></i> Dine-in
+                                </label>
+                                <label class="flex items-center justify-center gap-2 p-3 border-2 border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-all text-xs font-bold text-stone-700 has-[:checked]:border-orange-600 has-[:checked]:bg-orange-50 has-[:checked]:text-orange-700">
+                                    <input type="radio" name="queue-service" value="Take-out" class="hidden">
+                                    <i class="fa-solid fa-bag-shopping"></i> Take-out
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm shadow-md shadow-orange-600/20 transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-ticket"></i> Get Queue Ticket
+                        </button>
+                    </form>
+
+                    <!-- User Active Ticket Box (if created) -->
+                    <div id="user-ticket-box" class="hidden border-2 border-dashed border-orange-400 bg-orange-50/50 p-4 rounded-xl text-center space-y-2">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-orange-600">Your Active Ticket</span>
+                        <div id="my-ticket-num" class="text-4xl font-black text-orange-600">#00</div>
+                        <p id="my-ticket-info" class="text-xs text-stone-600">Juan Cruz • Dine-in</p>
+                        <div id="my-ticket-status" class="inline-block px-3 py-1 bg-amber-100 text-amber-800 font-bold text-xs rounded-full">
+                            Waiting in line...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Serving Display & Waiting List (7 cols) -->
+                <div class="lg:col-span-7 space-y-6">
+                    <!-- Now Serving Big Board -->
+                    <div class="bg-stone-900 text-white p-6 sm:p-8 rounded-2xl shadow-xl border border-stone-800 text-center relative overflow-hidden flex flex-col items-center justify-center min-h-[220px]">
+                        <div class="absolute top-4 left-4 text-xs font-bold uppercase tracking-widest text-orange-500 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Display
+                        </div>
+
+                        <div class="space-y-1">
+                            <span class="text-xs text-stone-400 uppercase font-semibold">Now Serving</span>
+                            <div id="now-serving-num" class="text-6xl sm:text-7xl font-black text-orange-500 tracking-tight">
+                                ---
+                            </div>
+                            <div id="now-serving-name" class="text-base text-stone-300 font-medium">
+                                No customer called yet
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Queue List -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-stone-900 text-base">Waiting Line</h3>
+                            <span id="waiting-count-badge" class="bg-stone-100 text-stone-700 text-xs font-bold px-2.5 py-1 rounded-full border border-stone-200">0 Waiting</span>
+                        </div>
+
+                        <div id="queue-list" class="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+                            <!-- Queue items injected via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 4: RESERVATION SYSTEM ================= -->
+        <section id="view-reservations" class="tab-view hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Table Reservation Form (5 cols) -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-5">
+                    <div>
+                        <span class="text-xs font-bold text-orange-600 uppercase tracking-wider">Book Ahead</span>
+                        <h2 class="text-xl font-bold text-stone-900">Table Reservation</h2>
+                        <p class="text-xs text-stone-500 mt-0.5">Guarantee your seats for lunch or dinner.</p>
+                    </div>
+
+                    <form onsubmit="handleCreateReservation(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-stone-700 mb-1">Customer Name</label>
+                            <input type="text" id="res-name" required placeholder="e.g. Maria Santos" class="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-700 mb-1">Contact No.</label>
+                                <input type="tel" id="res-contact" required placeholder="0917XXXXXXX" class="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-700 mb-1">Party Size</label>
+                                <input type="number" id="res-size" min="1" max="20" value="2" required class="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-700 mb-1">Date</label>
+                                <input type="date" id="res-date" required class="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-700 mb-1">Time Slot</label>
+                                <select id="res-time" required class="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+                                    <option value="11:00 AM">11:00 AM (Lunch)</option>
+                                    <option value="12:00 PM">12:00 PM (Lunch)</option>
+                                    <option value="01:00 PM">01:00 PM (Lunch)</option>
+                                    <option value="05:00 PM">05:00 PM (Dinner)</option>
+                                    <option value="06:00 PM">06:00 PM (Dinner)</option>
+                                    <option value="07:00 PM">07:00 PM (Dinner)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full py-3.5 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-sm shadow-md transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-calendar-check"></i> Submit Reservation
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Reservation Table & Table Layout (7 cols) -->
+                <div class="lg:col-span-7 space-y-6">
+                    <!-- Interactive Table Map -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-3">
+                        <h3 class="font-bold text-stone-900 text-sm">Dining Floor Map</h3>
+                        <div class="grid grid-cols-4 gap-3">
+                            <div class="p-3 border rounded-xl text-center bg-emerald-50 border-emerald-200 text-emerald-800">
+                                <i class="fa-solid fa-chair text-lg"></i>
+                                <p class="text-xs font-bold mt-1">Table 1</p>
+                                <p class="text-[10px] text-emerald-600">Available</p>
+                            </div>
+                            <div class="p-3 border rounded-xl text-center bg-orange-50 border-orange-200 text-orange-800">
+                                <i class="fa-solid fa-user-group text-lg"></i>
+                                <p class="text-xs font-bold mt-1">Table 2</p>
+                                <p class="text-[10px] text-orange-600">Reserved</p>
+                            </div>
+                            <div class="p-3 border rounded-xl text-center bg-emerald-50 border-emerald-200 text-emerald-800">
+                                <i class="fa-solid fa-chair text-lg"></i>
+                                <p class="text-xs font-bold mt-1">Table 3</p>
+                                <p class="text-[10px] text-emerald-600">Available</p>
+                            </div>
+                            <div class="p-3 border rounded-xl text-center bg-emerald-50 border-emerald-200 text-emerald-800">
+                                <i class="fa-solid fa-chair text-lg"></i>
+                                <p class="text-xs font-bold mt-1">Table 4</p>
+                                <p class="text-[10px] text-emerald-600">Available</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Reservations List -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+                        <h3 class="font-bold text-stone-900 text-sm">Active Reservation List</h3>
+                        <div id="reservations-list" class="space-y-3 max-h-[320px] overflow-y-auto">
+                            <!-- Reservations injected via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 5: STAFF / ADMIN DASHBOARD ================= -->
+        <section id="view-admin" class="tab-view hidden space-y-6">
+            
+            <!-- Quick Action Counters -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-stone-500">Today's Sales</p>
+                        <h4 id="admin-total-sales" class="text-2xl font-black text-emerald-600 mt-0.5">₱0.00</h4>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-peso-sign"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-stone-500">Completed Orders</p>
+                        <h4 id="admin-total-orders" class="text-2xl font-black text-stone-800 mt-0.5">0</h4>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-bag-shopping"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-stone-500">Queue Waiting</p>
+                        <h4 id="admin-queue-waiting" class="text-2xl font-black text-amber-600 mt-0.5">0</h4>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-stone-500">Active Menu Items</p>
+                        <h4 id="admin-menu-count" class="text-2xl font-black text-blue-600 mt-0.5">0</h4>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-bowl-food"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Queue Control & Daily Shift (5 cols) -->
+                <div class="lg:col-span-5 space-y-6">
+                    <!-- Queue Call Control -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-stone-900 text-sm">Queue Controls</h3>
+                            <span class="text-[10px] font-bold bg-stone-100 text-stone-600 px-2 py-0.5 rounded">Staff & Admin</span>
+                        </div>
+                        <button onclick="callNextCustomer()" class="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-base rounded-xl shadow-lg shadow-orange-600/20 transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-bullhorn text-lg"></i> Call Next Customer
+                        </button>
+                    </div>
+
+                    <!-- Advance Day Action Box (ADMIN ONLY) -->
+                    <div id="advance-day-box" class="bg-stone-900 text-white p-6 rounded-2xl shadow-sm border border-stone-800 space-y-3 relative overflow-hidden">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 text-amber-400">
+                                <i class="fa-solid fa-forward-step text-lg"></i>
+                                <h3 class="font-bold text-sm">Advance to Next Day</h3>
+                            </div>
+                            <span class="text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded uppercase">Admin Only</span>
+                        </div>
+                        <p class="text-xs text-stone-400">This action will rotate tomorrow's planned menu into Today's Menu and reset the queue numbers.</p>
+                        
+                        <button id="advance-day-btn" onclick="advanceDay()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-calendar-plus"></i> Advance Day & Update Today's Menu
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Add Dish Management Form (7 cols) -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-stone-900 text-base">Add New Menu Dish</h3>
+                            <p class="text-xs text-stone-500">Add home-cooked dishes to today's menu or tomorrow's preview with custom photo.</p>
+                        </div>
+                        <span class="text-[10px] font-bold bg-stone-100 text-stone-600 px-2 py-0.5 rounded">Staff & Admin</span>
+                    </div>
+
+                    <form onsubmit="handleAddMenuItem(event)" class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-700 mb-1">Dish Name</label>
+                                <input type="text" id="add-dish-name" required placeholder="e.g. Pork Menudo" class="w-full text-xs px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-700 mb-1">Price (₱)</label>
+                                <input type="number" step="0.5" id="add-dish-price" required placeholder="80.00" class="w-full text-xs px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-700 mb-1">Category</label>
+                                <select id="add-dish-category" class="w-full text-xs px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+                                    <option value="Ulam">🍲 Ulam</option>
+                                    <option value="Kanin">🍚 Kanin</option>
+                                    <option value="Meryenda">🍌 Meryenda</option>
+                                    <option value="Inumin">🥤 Inumin</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-700 mb-1">Target Menu Day</label>
+                                <select id="add-dish-target" class="w-full text-xs px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+                                    <option value="today">Today's Menu</option>
+                                    <option value="tomorrow">Tomorrow's Menu</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Image File Upload Box -->
+                        <div>
+                            <label class="block text-xs font-semibold text-stone-700 mb-1">Dish Photo (Optional)</label>
+                            <div class="flex items-center gap-3">
+                                <label class="flex-1 border-2 border-dashed border-stone-300 hover:border-orange-500 bg-stone-50 hover:bg-orange-50/30 p-3 rounded-xl cursor-pointer transition-all text-center">
+                                    <i class="fa-solid fa-cloud-arrow-up text-orange-600 text-lg mb-1 block"></i>
+                                    <span class="text-xs text-stone-600 font-medium">Click to upload photo</span>
+                                    <input type="file" id="add-dish-image" accept="image/*" onchange="previewUploadImage(event)" class="hidden">
+                                </label>
+                                <div id="image-preview-box" class="hidden relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 shadow-sm bg-stone-100 flex-shrink-0">
+                                    <img id="image-preview" src="" alt="Dish preview" class="w-full h-full object-cover">
+                                    <button type="button" onclick="clearUploadImage()" class="absolute top-0.5 right-0.5 bg-black/60 text-white w-4 h-4 rounded-full text-[9px] flex items-center justify-center">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Add Item to Menu
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- AUTHENTICATION MODAL -->
+    <div id="auth-modal" class="hidden fixed inset-0 bg-stone-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-stone-200 relative overflow-hidden">
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-2xl flex items-center justify-center text-white text-3xl mx-auto shadow-lg shadow-orange-600/30">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <h3 class="text-xl font-extrabold text-stone-900">Restricted Portal Access</h3>
+                <p class="text-xs text-stone-500">Please enter your Staff PIN or Admin Credentials to continue.</p>
+            </div>
+
+            <!-- Pre-set Demo Info Pill -->
+            <div class="bg-stone-50 border border-stone-200 p-3 rounded-2xl text-[11px] text-stone-600 space-y-1">
+                <p class="font-bold text-stone-800 text-xs flex items-center gap-1.5">
+                    <i class="fa-solid fa-key text-orange-500"></i> Demo Login PINs:
+                </p>
+                <div class="flex justify-between pt-1 border-t border-stone-200/60">
+                    <span>• Staff PIN: <strong class="text-orange-600 font-mono">1234</strong></span>
+                    <span>• Admin PIN: <strong class="text-orange-600 font-mono">8888</strong></span>
+                </div>
+            </div>
+
+            <form onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-stone-700 mb-1.5">Enter Security PIN or Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs"></i>
+                        <input type="password" id="auth-pin-input" required placeholder="••••" class="w-full text-sm pl-9 pr-3 py-3 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono">
+                    </div>
+                    <p id="auth-error-msg" class="hidden text-xs text-red-500 font-semibold mt-1.5 text-center">
+                        Invalid PIN or password. Try 1234 (Staff) or 8888 (Admin).
+                    </p>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeAuthModal()" class="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-md shadow-orange-600/20 transition-all">
+                        Authenticate
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- RECEIPT MODAL -->
+    <div id="receipt-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-stone-200">
+            <!-- Printable content area -->
+            <div id="printable-receipt" class="space-y-4 text-stone-800">
+                <div class="text-center border-b border-dashed border-stone-300 pb-4">
+                    <h3 class="font-extrabold text-lg text-stone-900">Boss SanAg'S KARINDERIA</h3>
+                    <p class="text-xs text-stone-500">Pasig City, Metro Manila</p>
+                    <p id="receipt-date" class="text-[10px] text-stone-400 mt-1">2026-09-30 18:30</p>
+                </div>
+
+                <div class="text-xs space-y-1">
+                    <div class="flex justify-between text-stone-600">
+                        <span>Order Type:</span>
+                        <span id="receipt-type" class="font-bold text-stone-900">Dine-in</span>
+                    </div>
+                    <div class="flex justify-between text-stone-600">
+                        <span>Customer:</span>
+                        <span id="receipt-customer" class="font-bold text-stone-900">Guest</span>
+                    </div>
+                </div>
+
+                <!-- Items Breakdown -->
+                <div id="receipt-items-list" class="border-t border-b border-dashed border-stone-300 py-3 text-xs space-y-2">
+                    <!-- Receipt items injected JS -->
+                </div>
+
+                <div class="space-y-1 text-xs">
+                    <div class="flex justify-between font-bold text-sm text-stone-900 pt-1">
+                        <span>Total Paid:</span>
+                        <span id="receipt-total" class="text-orange-600">₱0.00</span>
+                    </div>
+                </div>
+
+                <div class="text-center text-[10px] text-stone-400 pt-2">
+                    <p>Maraming Salamat Po! Kain na!</p>
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex gap-2 pt-2">
+                <button onclick="window.print()" class="flex-1 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-print"></i> Print
+                </button>
+                <button onclick="closeReceiptModal()" class="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-all">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TICKET GENERATED MODAL -->
+    <div id="ticket-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-lg text-stone-900">Queue Ticket Issued</h3>
+                <p class="text-xs text-stone-500">Please take note of your ticket number</p>
+            </div>
+            <div class="bg-orange-50 border border-orange-200 p-4 rounded-xl space-y-1">
+                <p id="modal-ticket-num" class="text-5xl font-black text-orange-600">#01</p>
+                <p id="modal-ticket-name" class="text-xs font-semibold text-stone-700">Juan Cruz</p>
+            </div>
+            <button onclick="closeTicketModal()" class="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs rounded-xl transition-all">
+                Got It
+            </button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION SYSTEM -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <script>
+        /* ================= STATE MANAGEMENT ================= */
+        let state = {
+            todayMenu: [
+                { id: 1, name: "Pork Adobo", price: 70.0, category: "Ulam", badge: "Best Seller", image: "https://images.unsplash.com/photo-1541832676-9b763b0239ab?w=400&auto=format&fit=crop" },
+                { id: 2, name: "Sinigang na Baboy", price: 80.0, category: "Ulam", badge: "Hot", image: "https://images.unsplash.com/photo-1547592180-85f173990554?w=400&auto=format&fit=crop" },
+                { id: 3, name: "Pinakbet", price: 50.0, category: "Ulam", badge: "Healthy", image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&auto=format&fit=crop" },
+                { id: 4, name: "Extra Rice", price: 15.0, category: "Kanin", badge: "", image: "https://images.unsplash.com/photo-1516684732162-798a0062be99?w=400&auto=format&fit=crop" },
+                { id: 5, name: "Sago't Gulaman", price: 20.0, category: "Inumin", badge: "Cold", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400&auto=format&fit=crop" },
+                { id: 6, name: "Banana Cue", price: 25.0, category: "Meryenda", badge: "Snack", image: "https://images.unsplash.com/photo-1528825871115-3581a5387919?w=400&auto=format&fit=crop" }
+            ],
+            tomorrowMenu: [
+                { id: 101, name: "Bicol Express", price: 75.0, category: "Ulam", badge: "Spicy", image: "https://images.unsplash.com/photo-1588166524941-3bf61a9c41db?w=400&auto=format&fit=crop" },
+                { id: 102, name: "Chicken Curry", price: 80.0, category: "Ulam", badge: "Special", image: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=400&auto=format&fit=crop" },
+                { id: 103, name: "Ginisang Sayote", price: 45.0, category: "Ulam", badge: "", image: "" },
+                { id: 104, name: "Extra Rice", price: 15.0, category: "Kanin", badge: "", image: "https://images.unsplash.com/photo-1516684732162-798a0062be99?w=400&auto=format&fit=crop" },
+                { id: 105, name: "Iced Tea", price: 20.0, category: "Inumin", badge: "", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&auto=format&fit=crop" }
+            ],
+            currentOrder: [],
+            orderType: "Dine-in",
+            queue: [
+                { number: 1, name: "Aria Santos", type: "Dine-in", status: "Serving" },
+                { number: 2, name: "Mark Reyes", type: "Take-out", status: "Waiting" },
+                { number: 3, name: "Elena Cruz", type: "Dine-in", status: "Waiting" }
+            ],
+            nextQueueNumber: 4,
+            nowServing: 1,
+            reservations: [
+                { id: 1001, name: "Maria Clara", contact: "09171234567", size: 4, date: "2026-10-01", time: "12:00 PM", status: "Confirmed" }
+            ],
+            totalSales: 0.0,
+            completedOrdersCount: 0,
+            activeCategory: "All",
+            uploadedImageDataUrl: "", // Stores current image upload in base64
+            // AUTHENTICATION STATE
+            auth: {
+                isAuthenticated: false,
+                role: null, // "staff" or "admin"
+                userName: ""
+            }
+        };
+
+        /* ================= INITIALIZATION ================= */
+        window.addEventListener('DOMContentLoaded', () => {
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Set default date picker to tomorrow
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('res-date').value = tomorrow.toISOString().split('T')[0];
+
+            renderTodayMenu();
+            renderTomorrowMenu();
+            renderQueue();
+            renderReservations();
+            updateAdminStats();
+            updateAuthUI();
+        });
+
+        /* ================= CLOCK & UTILS ================= */
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-time').textContent = now.toLocaleTimeString();
+            document.getElementById('live-date').textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-xs font-bold text-white transition-all transform translate-y-2 opacity-0 ${
+                type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-stone-800'
+            }`;
+            toast.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${message}`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        /* ================= AUTHENTICATION LOGIC ================= */
+        function openAuthModal() {
+            document.getElementById('auth-pin-input').value = '';
+            document.getElementById('auth-error-msg').classList.add('hidden');
+            document.getElementById('auth-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('auth-pin-input').focus(), 100);
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+        }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const pin = document.getElementById('auth-pin-input').value.trim();
+
+            if (pin === "1234") {
+                // Logged in as Staff
+                state.auth.isAuthenticated = true;
+                state.auth.role = "staff";
+                state.auth.userName = "Staff User";
+                closeAuthModal();
+                updateAuthUI();
+                switchTab('admin');
+                showToast("Logged in successfully as Staff", "success");
+            } else if (pin === "8888" || pin.toLowerCase() === "admin") {
+                // Logged in as Admin
+                state.auth.isAuthenticated = true;
+                state.auth.role = "admin";
+                state.auth.userName = "Admin User";
+                closeAuthModal();
+                updateAuthUI();
+                switchTab('admin');
+                showToast("Logged in successfully as Administrator", "success");
+            } else {
+                document.getElementById('auth-error-msg').classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            state.auth.isAuthenticated = false;
+            state.auth.role = null;
+            state.auth.userName = "";
+            updateAuthUI();
+            switchTab('pos');
+            showToast("Logged out of Staff/Admin portal", "info");
+        }
+
+        function updateAuthUI() {
+            const badge = document.getElementById('auth-status-badge');
+            const mbadge = document.getElementById('mauth-status-badge');
+            const roleTag = document.getElementById('auth-role-tag');
+            const userName = document.getElementById('auth-user-name');
+            const adminTabIcon = document.getElementById('admin-tab-icon');
+            const madminTabIcon = document.getElementById('madmin-tab-icon');
+
+            if (state.auth.isAuthenticated) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+                mbadge.classList.remove('hidden');
+
+                roleTag.textContent = state.auth.role.toUpperCase();
+                roleTag.className = state.auth.role === 'admin' 
+                    ? 'text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-stone-950'
+                    : 'text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-600 text-white';
+                
+                userName.textContent = state.auth.userName;
+
+                adminTabIcon.className = "fa-solid fa-sliders";
+                madminTabIcon.className = "fa-solid fa-sliders";
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('flex');
+                mbadge.classList.add('hidden');
+
+                adminTabIcon.className = "fa-solid fa-lock";
+                madminTabIcon.className = "fa-solid fa-lock";
+            }
+
+            // Lock / Unlock Admin-only features
+            const advanceBtn = document.getElementById('advance-day-btn');
+
+            if (state.auth.role === 'staff') {
+                advanceBtn.disabled = true;
+                advanceBtn.className = "w-full py-3 bg-stone-700 text-stone-400 font-bold text-xs rounded-xl cursor-not-allowed opacity-60";
+                advanceBtn.title = "Admin access required";
+            } else {
+                advanceBtn.disabled = false;
+                advanceBtn.className = "w-full py-3 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer";
+                advanceBtn.title = "";
+            }
+        }
+
+        /* ================= TAB NAVIGATION ================= */
+        function switchTab(tabId) {
+            // Check auth for Admin tab
+            if (tabId === 'admin' && !state.auth.isAuthenticated) {
+                openAuthModal();
+                return;
+            }
+
+            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+            // Update Desktop buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn px-4 py-2.5 rounded-xl text-sm font-medium text-stone-300 hover:text-white hover:bg-stone-800 transition-all duration-200 flex items-center gap-2";
+            });
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            if (activeBtn) activeBtn.className = "tab-btn px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 bg-orange-600 text-white shadow-md shadow-orange-600/20";
+
+            // Update Mobile buttons
+            document.querySelectorAll('.tab-btn-m').forEach(btn => {
+                btn.className = "tab-btn-m whitespace-nowrap px-3 py-2 rounded-lg font-medium text-stone-400 flex items-center gap-1.5";
+            });
+            const activeMobileBtn = document.getElementById(`mtab-${tabId}`);
+            if (activeMobileBtn) activeMobileBtn.className = "tab-btn-m whitespace-nowrap px-3 py-2 rounded-lg font-medium bg-orange-600 text-white flex items-center gap-1.5";
+        }
+
+        /* ================= MENU & POS LOGIC ================= */
+        function filterCategory(cat) {
+            state.activeCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('bg-stone-900', 'text-white');
+                btn.classList.add('bg-stone-100', 'text-stone-600');
+            });
+            event.target.classList.remove('bg-stone-100', 'text-stone-600');
+            event.target.classList.add('bg-stone-900', 'text-white');
+            renderTodayMenu();
+        }
+
+        function renderTodayMenu() {
+            const grid = document.getElementById('today-menu-grid');
+            const query = document.getElementById('menu-search').value.toLowerCase();
+            grid.innerHTML = '';
+
+            const filtered = state.todayMenu.filter(item => {
+                const matchCat = state.activeCategory === 'All' || item.category === state.activeCategory;
+                const matchSearch = item.name.toLowerCase().includes(query);
+                return matchCat && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-stone-400"><p class="text-xs">No menu items found</p></div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl shadow-sm border border-stone-200 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group";
+                
+                // Card Photo Header or Icon Placeholder
+                const photoHeader = item.image 
+                    ? `<div class="w-full h-32 overflow-hidden relative bg-stone-100">
+                        <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                       </div>`
+                    : `<div class="w-full h-24 bg-gradient-to-tr from-stone-100 to-amber-50 flex items-center justify-center text-stone-300 text-3xl">
+                        <i class="fa-solid fa-utensils"></i>
+                       </div>`;
+
+                card.innerHTML = `
+                    <div>
+                        ${photoHeader}
+                        <div class="p-4 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md">${item.category}</span>
+                                ${item.badge ? `<span class="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md">${item.badge}</span>` : ''}
+                            </div>
+                            <h3 class="font-bold text-stone-800 text-base leading-snug">${item.name}</h3>
+                            <p class="text-sm font-extrabold text-orange-600">₱${item.price.toFixed(2)}</p>
+                        </div>
+                    </div>
+                    <div class="p-4 pt-0">
+                        <button onclick="addToOrder(${item.id})" class="w-full py-2 bg-stone-900 hover:bg-orange-600 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-plus text-[10px]"></i> Add to Order
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function addToOrder(id) {
+            const item = state.todayMenu.find(i => i.id === id);
+            if (!item) return;
+
+            const existing = state.currentOrder.find(o => o.id === id);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                state.currentOrder.push({ ...item, qty: 1 });
+            }
+            renderOrderSummary();
+            showToast(`Added ${item.name} to order`, 'success');
+        }
+
+        function updateOrderQty(id, delta) {
+            const idx = state.currentOrder.findIndex(o => o.id === id);
+            if (idx > -1) {
+                state.currentOrder[idx].qty += delta;
+                if (state.currentOrder[idx].qty <= 0) {
+                    state.currentOrder.splice(idx, 1);
+                }
+            }
+            renderOrderSummary();
+        }
+
+        function setOrderType(type) {
+            state.orderType = type;
+            const btnDine = document.getElementById('type-dinein');
+            const btnTake = document.getElementById('type-takeout');
+
+            if (type === 'Dine-in') {
+                btnDine.className = "order-type-btn flex-1 py-2 rounded-xl border-2 border-orange-600 bg-orange-50 text-orange-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5";
+                btnTake.className = "order-type-btn flex-1 py-2 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-semibold hover:border-stone-300 transition-all flex items-center justify-center gap-1.5";
+            } else {
+                btnTake.className = "order-type-btn flex-1 py-2 rounded-xl border-2 border-orange-600 bg-orange-50 text-orange-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5";
+                btnDine.className = "order-type-btn flex-1 py-2 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-semibold hover:border-stone-300 transition-all flex items-center justify-center gap-1.5";
+            }
+        }
+
+        function clearOrder() {
+            state.currentOrder = [];
+            renderOrderSummary();
+        }
+
+        function renderOrderSummary() {
+            const list = document.getElementById('order-items-list');
+            list.innerHTML = '';
+
+            if (state.currentOrder.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-12 text-stone-400">
+                        <i class="fa-solid fa-basket-shopping text-4xl mb-2 text-stone-300"></i>
+                        <p class="text-xs font-medium">No items selected yet</p>
+                        <p class="text-[10px] text-stone-400 mt-0.5">Click on menu items to add to order</p>
+                    </div>`;
+                document.getElementById('summary-subtotal').textContent = '₱0.00';
+                document.getElementById('summary-fee').textContent = '₱0.00';
+                document.getElementById('summary-total').textContent = '₱0.00';
+                
+                const btn = document.getElementById('checkout-btn');
+                btn.disabled = true;
+                btn.className = "w-full py-3 bg-stone-200 text-stone-400 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-not-allowed";
+                return;
+            }
+
+            let subtotal = 0;
+            state.currentOrder.forEach(item => {
+                const itemTotal = item.price * item.qty;
+                subtotal += itemTotal;
+
+                const row = document.createElement('div');
+                row.className = "pt-2 first:pt-0 flex items-center justify-between text-xs";
+                row.innerHTML = `
+                    <div class="flex-1 pr-2">
+                        <p class="font-bold text-stone-800">${item.name}</p>
+                        <p class="text-[10px] text-stone-400">₱${item.price.toFixed(2)} each</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center border border-stone-200 rounded-lg bg-stone-50">
+                            <button onclick="updateOrderQty(${item.id}, -1)" class="px-2 py-0.5 text-stone-600 hover:text-black">-</button>
+                            <span class="px-2 font-bold text-stone-800">${item.qty}</span>
+                            <button onclick="updateOrderQty(${item.id}, 1)" class="px-2 py-0.5 text-stone-600 hover:text-black">+</button>
+                        </div>
+                        <span class="font-bold text-stone-800 w-14 text-right">₱${itemTotal.toFixed(2)}</span>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+
+            const total = subtotal;
+            document.getElementById('summary-subtotal').textContent = `₱${subtotal.toFixed(2)}`;
+            document.getElementById('summary-fee').textContent = '₱0.00';
+            document.getElementById('summary-total').textContent = `₱${total.toFixed(2)}`;
+
+            const btn = document.getElementById('checkout-btn');
+            btn.disabled = false;
+            btn.className = "w-full py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-sm shadow-md shadow-orange-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer";
+        }
+
+        function processCheckout() {
+            if (state.currentOrder.length === 0) return;
+
+            const customerName = document.getElementById('order-customer-name').value.trim() || "Walk-in Guest";
+            const subtotal = state.currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+
+            // Populate Modal Receipt
+            document.getElementById('receipt-date').textContent = new Date().toLocaleString();
+            document.getElementById('receipt-type').textContent = state.orderType;
+            document.getElementById('receipt-customer').textContent = customerName;
+            document.getElementById('receipt-total').textContent = `₱${subtotal.toFixed(2)}`;
+
+            const receiptList = document.getElementById('receipt-items-list');
+            receiptList.innerHTML = '';
+            state.currentOrder.forEach(i => {
+                receiptList.innerHTML += `
+                    <div class="flex justify-between">
+                        <span>${i.qty}x ${i.name}</span>
+                        <span class="font-bold">₱${(i.price * i.qty).toFixed(2)}</span>
+                    </div>
+                `;
+            });
+
+            // Update stats
+            state.totalSales += subtotal;
+            state.completedOrdersCount += 1;
+            updateAdminStats();
+
+            // Clear active order
+            state.currentOrder = [];
+            document.getElementById('order-customer-name').value = '';
+            renderOrderSummary();
+
+            // Open Modal
+            document.getElementById('receipt-modal').classList.remove('hidden');
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receipt-modal').classList.add('hidden');
+        }
+
+        /* ================= TOMORROW'S MENU LOGIC ================= */
+        function renderTomorrowMenu() {
+            const grid = document.getElementById('tomorrow-menu-grid');
+            grid.innerHTML = '';
+
+            if (state.tomorrowMenu.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-stone-400"><p class="text-xs">Tomorrow's menu hasn't been finalized yet.</p></div>`;
+                return;
+            }
+
+            state.tomorrowMenu.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden relative group";
+                
+                const photoHeader = item.image 
+                    ? `<div class="w-full h-32 overflow-hidden relative bg-stone-100">
+                        <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                       </div>`
+                    : `<div class="w-full h-24 bg-gradient-to-tr from-stone-100 to-amber-50 flex items-center justify-center text-stone-300 text-3xl">
+                        <i class="fa-solid fa-utensils"></i>
+                       </div>`;
+
+                card.innerHTML = `
+                    ${photoHeader}
+                    <div class="p-4 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md">${item.category}</span>
+                            ${item.badge ? `<span class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">${item.badge}</span>` : ''}
+                        </div>
+                        <h3 class="font-bold text-stone-800 text-base leading-snug">${item.name}</h3>
+                        <p class="text-sm font-extrabold text-amber-600">₱${item.price.toFixed(2)}</p>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        /* ================= QUEUEING LOGIC ================= */
+        function handleGetTicket(e) {
+            e.preventDefault();
+            const name = document.getElementById('queue-name').value.trim();
+            const service = document.querySelector('input[name="queue-service"]:checked').value;
+
+            const ticket = {
+                number: state.nextQueueNumber,
+                name: name,
+                type: service,
+                status: "Waiting"
+            };
+
+            state.queue.push(ticket);
+            state.nextQueueNumber += 1;
+
+            // Show User ticket indicator
+            document.getElementById('user-ticket-box').classList.remove('hidden');
+            document.getElementById('my-ticket-num').textContent = `#${ticket.number.toString().padStart(2, '0')}`;
+            document.getElementById('my-ticket-info').textContent = `${ticket.name} • ${ticket.type}`;
+
+            // Show Ticket Modal
+            document.getElementById('modal-ticket-num').textContent = `#${ticket.number.toString().padStart(2, '0')}`;
+            document.getElementById('modal-ticket-name').textContent = `${ticket.name} (${ticket.type})`;
+            document.getElementById('ticket-modal').classList.remove('hidden');
+
+            document.getElementById('queue-name').value = '';
+            renderQueue();
+            updateAdminStats();
+        }
+
+        function closeTicketModal() {
+            document.getElementById('ticket-modal').classList.add('hidden');
+        }
+
+        function renderQueue() {
+            const list = document.getElementById('queue-list');
+            list.innerHTML = '';
+
+            const waiting = state.queue.filter(q => q.status === 'Waiting');
+            const serving = state.queue.find(q => q.status === 'Serving');
+
+            // Update Header Counter
+            document.getElementById('nav-queue-count').textContent = waiting.length;
+            document.getElementById('waiting-count-badge').textContent = `${waiting.length} Waiting`;
+
+            // Update Live Big Board
+            if (serving) {
+                document.getElementById('now-serving-num').textContent = `#${serving.number.toString().padStart(2, '0')}`;
+                document.getElementById('now-serving-name').textContent = `${serving.name} (${serving.type})`;
+            } else {
+                document.getElementById('now-serving-num').textContent = "---";
+                document.getElementById('now-serving-name').textContent = "No customer called yet";
+            }
+
+            if (waiting.length === 0) {
+                list.innerHTML = `<div class="text-center py-8 text-stone-400 text-xs">No customers currently waiting</div>`;
+                return;
+            }
+
+            waiting.forEach(q => {
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs";
+                row.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="font-black text-orange-600 text-sm">#${q.number.toString().padStart(2, '0')}</span>
+                        <div>
+                            <p class="font-bold text-stone-800">${q.name}</p>
+                            <p class="text-[10px] text-stone-400">${q.type}</p>
+                        </div>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">Waiting</span>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function callNextCustomer() {
+            // Complete serving ticket if any
+            const serving = state.queue.find(q => q.status === 'Serving');
+            if (serving) {
+                serving.status = 'Completed';
+            }
+
+            // Get next waiting
+            const next = state.queue.find(q => q.status === 'Waiting');
+            if (next) {
+                next.status = 'Serving';
+                
+                // Trigger announcement banner
+                const banner = document.getElementById('announcement-banner');
+                const text = document.getElementById('announcement-text');
+                text.textContent = `NOW SERVING: Ticket #${next.number.toString().padStart(2, '0')} - ${next.name} (${next.type})`;
+                banner.classList.remove('hidden');
+
+                showToast(`Calling Ticket #${next.number}`, 'success');
+            } else {
+                showToast("No customers in queue to call.", "error");
+            }
+
+            renderQueue();
+            updateAdminStats();
+        }
+
+        function closeAnnouncement() {
+            document.getElementById('announcement-banner').classList.add('hidden');
+        }
+
+        /* ================= RESERVATION LOGIC ================= */
+        function handleCreateReservation(e) {
+            e.preventDefault();
+            const name = document.getElementById('res-name').value.trim();
+            const contact = document.getElementById('res-contact').value.trim();
+            const size = document.getElementById('res-size').value;
+            const date = document.getElementById('res-date').value;
+            const time = document.getElementById('res-time').value;
+
+            const res = {
+                id: Math.floor(1000 + Math.random() * 9000),
+                name, contact, size, date, time,
+                status: "Confirmed"
+            };
+
+            state.reservations.unshift(res);
+            document.getElementById('res-name').value = '';
+            document.getElementById('res-contact').value = '';
+
+            renderReservations();
+            showToast("Table reservation created!", "success");
+        }
+
+        function renderReservations() {
+            const list = document.getElementById('reservations-list');
+            list.innerHTML = '';
+
+            if (state.reservations.length === 0) {
+                list.innerHTML = `<div class="text-center py-8 text-stone-400 text-xs">No active reservations</div>`;
+                return;
+            }
+
+            state.reservations.forEach(r => {
+                const card = document.createElement('div');
+                card.className = "p-3.5 border border-stone-200 rounded-xl bg-stone-50 flex items-center justify-between text-xs";
+                card.innerHTML = `
+                    <div class="space-y-0.5">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-stone-900">${r.name}</span>
+                            <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${r.status}</span>
+                        </div>
+                        <p class="text-[11px] text-stone-500"><i class="fa-solid fa-users text-stone-400"></i> ${r.size} guests • <i class="fa-solid fa-clock text-stone-400"></i> ${r.time} (${r.date})</p>
+                        <p class="text-[10px] text-stone-400">Contact: ${r.contact}</p>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        /* ================= IMAGE UPLOAD UTILITIES ================= */
+        function previewUploadImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                state.uploadedImageDataUrl = e.target.result;
+                document.getElementById('image-preview').src = e.target.result;
+                document.getElementById('image-preview-box').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearUploadImage() {
+            state.uploadedImageDataUrl = "";
+            document.getElementById('add-dish-image').value = "";
+            document.getElementById('image-preview').src = "";
+            document.getElementById('image-preview-box').classList.add('hidden');
+        }
+
+        /* ================= ADMIN & DAY ADVANCEMENT LOGIC ================= */
+        function handleAddMenuItem(e) {
+            e.preventDefault();
+            const name = document.getElementById('add-dish-name').value.trim();
+            const price = parseFloat(document.getElementById('add-dish-price').value);
+            const category = document.getElementById('add-dish-category').value;
+            const target = document.getElementById('add-dish-target').value;
+
+            const newItem = {
+                id: Date.now(),
+                name, 
+                price, 
+                category, 
+                badge: "New",
+                image: state.uploadedImageDataUrl // Attach custom uploaded image DataURL
+            };
+
+            if (target === 'today') {
+                state.todayMenu.push(newItem);
+                renderTodayMenu();
+                showToast(`Added ${name} to Today's menu!`, "success");
+            } else {
+                state.tomorrowMenu.push(newItem);
+                renderTomorrowMenu();
+                showToast(`Added ${name} to Tomorrow's menu preview!`, "success");
+            }
+
+            // Reset form fields
+            document.getElementById('add-dish-name').value = '';
+            document.getElementById('add-dish-price').value = '';
+            clearUploadImage();
+            updateAdminStats();
+        }
+
+        function advanceDay() {
+            if (state.auth.role !== 'admin') {
+                showToast("Administrator role required to advance the day", "error");
+                return;
+            }
+
+            if (state.tomorrowMenu.length === 0) {
+                showToast("Cannot advance day: Tomorrow's menu is empty!", "error");
+                return;
+            }
+
+            // Shift tomorrow's menu into today's menu
+            state.todayMenu = [...state.tomorrowMenu];
+            state.tomorrowMenu = [];
+            
+            // Reset daily queue numbers
+            state.queue = [];
+            state.nextQueueNumber = 1;
+            state.nowServing = 0;
+
+            renderTodayMenu();
+            renderTomorrowMenu();
+            renderQueue();
+            updateAdminStats();
+
+            showToast("Advanced Day! Tomorrow's menu is now Today's Menu.", "success");
+        }
+
+        function updateAdminStats() {
+            document.getElementById('admin-total-sales').textContent = `₱${state.totalSales.toFixed(2)}`;
+            document.getElementById('admin-total-orders').textContent = state.completedOrdersCount;
+            document.getElementById('admin-queue-waiting').textContent = state.queue.filter(q => q.status === 'Waiting').length;
+            document.getElementById('admin-menu-count').textContent = state.todayMenu.length;
+        }
+    </script>
+</body>
+</html>
