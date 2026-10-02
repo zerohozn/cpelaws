@@ -90,3 +90,29 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Karinderia API running on http://localhost:${PORT}`);
 });
+// API: View All Auth Logs
+app.get('/api/logs/auth', (req, res) => {
+    try {
+        const logs = db.prepare('SELECT * FROM auth_logs ORDER BY login_timestamp DESC').all();
+        res.json(logs);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// API: View All Orders with Items
+app.get('/api/orders', (req, res) => {
+    try {
+        const orders = db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all();
+        const getItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?');
+
+        const fullOrders = orders.map(order => ({
+            ...order,
+            items: getItems.all(order.id)
+        }));
+
+        res.json(fullOrders);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
