@@ -1,14 +1,21 @@
 const express = require('express');
 const Database = require('better-sqlite3');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
-const db = new Database('karinderia.db');
+
+// Ensure database file is created directly in project directory
+const dbPath = path.join(__dirname, 'karinderia.db');
+const db = new Database(dbPath);
+
+// Enable WAL mode to prevent file-locking issues when inspecting
+db.pragma('journal_mode = WAL');
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Initialize Tables
+// Initialize Schema
 db.exec(`
     CREATE TABLE IF NOT EXISTS auth_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,13 +43,12 @@ db.exec(`
     );
 `);
 
-// API Endpoint: Log Staff/Admin Authentication
+// API: Log Auth
 app.post('/api/logs/auth', (req, res) => {
     const { role, userName } = req.body;
     if (!role || !userName) {
         return res.status(400).json({ error: 'Role and userName are required.' });
     }
-
     try {
         const stmt = db.prepare('INSERT INTO auth_logs (role, user_name) VALUES (?, ?)');
         const result = stmt.run(role, userName);
@@ -52,7 +58,7 @@ app.post('/api/logs/auth', (req, res) => {
     }
 });
 
-// API Endpoint: Record Completed Order
+// API: Record Order
 app.post('/api/orders', (req, res) => {
     const { customerName, orderType, subtotal, items } = req.body;
     if (!orderType || !Array.isArray(items) || items.length === 0) {
@@ -80,8 +86,7 @@ app.post('/api/orders', (req, res) => {
     }
 });
 
-// Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Karinderia API running on port ${PORT}`);
+    console.log(`Karinderia API running on http://localhost:${PORT}`);
 });
